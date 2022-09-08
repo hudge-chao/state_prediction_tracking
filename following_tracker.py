@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 class StateTrackerFollow(threading.Thread):
-    def __init__(self) -> None:
+    def __init__(self, local_map_resolution = 0.1) -> None:
         super(StateTrackerFollow, self).__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -21,7 +21,7 @@ class StateTrackerFollow(threading.Thread):
 
         self.follower_occupancy_map = []
 
-        self.local_map_resolution = 0.1
+        self.local_map_resolution = local_map_resolution
 
     def run(self):
         rospy.init_node('~', anonymous=True)
@@ -34,8 +34,10 @@ class StateTrackerFollow(threading.Thread):
 
         self.goal_msg_publish_seq = 0
 
-        rospy.spin()
+        rate = rospy.Rate(5)
 
+        while not rospy.is_shutdown():
+            rate.sleep()
 
     def leader_position_callback(self, msg:ModelStates):
         leader_pose_index = msg.name.index('robot')
