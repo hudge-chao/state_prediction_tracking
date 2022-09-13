@@ -39,11 +39,19 @@ def test_one_case(index:int):
     visualized_image = visualization_tools(local_map, trajectory, tracked_position)
     cv2.imwrite("visualization_test.png", visualized_image)
 
+def test_all_case():
+    for i in range(10431):
+        local_map = cv2.imread("samples/maps/{}.png".format(i))
+        # origin_point = np.loadtxt("samples/origin/6798.csv", delimiter=',', dtype=np.float)
+        # tracked_point = [int((tracked_position[0] - origin_point[0]) / 0.1), int((tracked_position[1] - origin_point[1]) / 0.1)]
+        trajectory = np.loadtxt("samples/path/{}.csv".format(i), delimiter=',', dtype=np.int)
+        tracked_position = np.loadtxt("samples/tracked_pixel/{}.csv".format(i), delimiter=',', dtype=np.int)
+        visualized_image = visualization_tools(local_map, trajectory, tracked_position)
+        cv2.imwrite("vis/{}.png".format(i), visualized_image)
+
 def main():
-    for _ in range(100):
-        index = random.randint(0, 3000)
-        test_one_case(index)
-        sleep(2)
+    test_all_case()
+    sleep(50/1000)
 
 if __name__ == '__main__':
     main()
