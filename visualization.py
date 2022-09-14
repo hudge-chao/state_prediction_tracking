@@ -5,6 +5,13 @@ if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
 import cv2
 import numpy as np
 import random 
+import os
+
+files = os.listdir('./samples/maps')
+
+counts = len(files)
+
+print('共有{}个样本'.format(counts))
 
 
 def visualization_tools(img, path, target_position, prediction=None):
@@ -16,7 +23,7 @@ def visualization_tools(img, path, target_position, prediction=None):
     target_position = target_position.astype(np.int)
     target_position = np.array([target_position[1], target_position[0]]) 
     # visualization  
-    cv2.circle(img, (100, 100), 2, (0, 255, 0), 1)
+    cv2.circle(img, (150, 150), 2, (0, 255, 0), 1)
     point_nums = len(path)
     for i in range(point_nums-1):
         start = (path[i][1], path[i][0])
@@ -40,7 +47,7 @@ def test_one_case(index:int):
     cv2.imwrite("visualization_test.png", visualized_image)
 
 def test_all_case():
-    for i in range(10431):
+    for i in range(counts):
         local_map = cv2.imread("samples/maps/{}.png".format(i))
         # origin_point = np.loadtxt("samples/origin/6798.csv", delimiter=',', dtype=np.float)
         # tracked_point = [int((tracked_position[0] - origin_point[0]) / 0.1), int((tracked_position[1] - origin_point[1]) / 0.1)]
@@ -51,7 +58,6 @@ def test_all_case():
 
 def main():
     test_all_case()
-    sleep(50/1000)
 
 if __name__ == '__main__':
     main()
