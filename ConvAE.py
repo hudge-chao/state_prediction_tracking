@@ -48,15 +48,15 @@ class Encoder(nn.Module):
 
             ('encoder-conv5', nn.Conv2d(16, 32, 2, stride=1)),
             ('encoder-norm5', nn.BatchNorm2d(32)),
-            ('encoder-relu5', nn.ReLU(True)), # (16, 72, 72)
+            ('encoder-relu5', nn.ReLU(True)), # (32, 72, 72)
 
             ('encoder-conv6', nn.Conv2d(32, 32, 2, stride=1)),
             ('encoder-norm6', nn.BatchNorm2d(32)),
-            ('encoder-relu6', nn.ReLU(True)), # (16, 71, 71)
+            ('encoder-relu6', nn.ReLU(True)), # (32, 71, 71)
 
             ('encoder-conv7', nn.Conv2d(32, 32, 2, stride=1)),
             ('encoder-norm7', nn.BatchNorm2d(32)),
-            ('encoder-relu7', nn.ReLU(True)), # (16, 70, 70)
+            ('encoder-relu7', nn.ReLU(True)), # (32, 70, 70)
 
             ('encoder-pool2', nn.MaxPool2d(2, 2, 0)), # (32, 35, 35)
 
@@ -159,11 +159,11 @@ class Decoder(nn.Module):
 
             nn.ConvTranspose2d(32, 32, 2, stride=1, output_padding=(0, 0)),
             nn.BatchNorm2d(32),
-            nn.ReLU(True), # (16, 71, 71)
+            nn.ReLU(True), # (32, 71, 71)
 
-            nn.ConvTranspose2d(32, 16, 2, stride=1, output_padding=(0, 0)),
-            nn.BatchNorm2d(16),
-            nn.ReLU(True), # (16, 72, 72)
+            nn.ConvTranspose2d(32, 32, 2, stride=1, output_padding=(0, 0)),
+            nn.BatchNorm2d(32),
+            nn.ReLU(True), # (32, 72, 72)
 
             nn.ConvTranspose2d(32, 16, 2, stride=1, output_padding=(0, 0)),
             nn.BatchNorm2d(16),
@@ -195,13 +195,6 @@ class Decoder(nn.Module):
         )
         
     def forward(self, x):
-        # Apply linear layers
-        # x = self.decoder_lin(x)
-        # Unflatten
-        # x = self.decoder_unflatten(x)
-        # # Apply transposed convolutions
         x = self.decoder_conv(x)
-        # # Apply a sigmoid to force the output to be between 0 and 1 (valid pixel values)
-        # x = torch.sigmoid(x)
         return x
 
