@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import random
 import torch 
-from state_track_network import state_predictor
+from models.Tracker.state_track_network import state_predictor
 from visualization import visualization_tools
 from tensorboardX import SummaryWriter
 import torch.nn as nn

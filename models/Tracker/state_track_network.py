@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import torch
 import torch.nn as nn
-from ConvAE import Encoder
+from models.AE.ConvAE import Encoder
 
 class state_predictor(nn.Module):
     def __init__(self, input_dims=124, hidden_dims=32, output_dims=2) -> None:

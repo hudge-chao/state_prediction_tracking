@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import torch 
-from ConvAE import Encoder, Decoder
+from models.AE.ConvAE import Encoder, Decoder
 import torch.functional as F
 import torch.nn as nn
 import tensorboardX

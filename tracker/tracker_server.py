@@ -2,26 +2,40 @@ import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import PointStamped
 from nav_msgs.msg import OccupancyGrid
-from state_track_network import state_predictor
+from models.Tracker.state_track_network import state_predictor
+from models.Tracker.state_track_trajectory_only import state_track_trajectory
 import torch 
 import threading
 import cv2
 import numpy as np
 
-class StateTrackerFollow(threading.Thread):
-    def __init__(self, local_map_resolution = 0.1) -> None:
-        super(StateTrackerFollow, self).__init__()
+class TrackerServer(threading.Thread):
+    def __init__(self, local_map_resolution : float = 0.1, use_tracker : bool = True, tracker_type : str = 'union') -> None:
+        super(TrackerServer, self).__init__()
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.tracker_net = state_predictor()
+        if tracker_type == 'union':
+            self.tracker_net = state_predictor()
 
-        self.tracker_net.load_state_dict(torch.load('./weights/state_tracker/300_predictor.pth'), strict=True).to(self.device)
+            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_union/300_predictor.pth'), strict=True).to(self.device)
+        
+        else:
+            self.tracker_net = state_track_trajectory()
+
+            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_single/300_predictor.pth'), strict=True).to(self.device)
         
         self.leader_trajectoy = []
 
         self.follower_occupancy_map = []
 
         self.local_map_resolution = local_map_resolution
+
+        self.use_tracker = use_tracker
+
+        self.trajectory_waypoints_nums = 30
+
+        self.mapOriginArray = []
 
     def run(self):
         rospy.init_node('~', anonymous=True)
@@ -43,13 +57,15 @@ class StateTrackerFollow(threading.Thread):
         leader_pose_index = msg.name.index('robot')
         leader_position = msg.pose[leader_pose_index].position
         self.leader_trajectoy.append(leader_position)
-        if len(self.leader_trajectoy) > 35:
+
+        if len(self.leader_trajectoy) > self.trajectory_waypoints_nums:
             self.leader_trajectoy.pop(0)
         
-        if len(self.leader_trajectoy) == 35:
+        if len(self.leader_trajectoy) == self.trajectory_waypoints_nums:
             # state tracker inference the leader state and publish the navigation goal waypoint
             tracked_state = self.inference_navigation_goal()
-            self.publish_navigation_point(tracked_state)
+            if self.use_tracker == True:
+                self.publish_navigation_point(tracked_state)
 
 
     def leader_map_callback(self, map:OccupancyGrid):
@@ -57,7 +73,7 @@ class StateTrackerFollow(threading.Thread):
         self.myOccupancyMapHeight = map.info.height
         self.myOccupancyMapOriginX = map.info.origin.position.x
         self.myOccupancyMapOriginY = map.info.origin.position.y
-        
+        self.mapOriginArray.append((self.myOccupancyMapOriginX, self.myOccupancyMapOriginY))
         occupancy_map_size = self.myOccupancyMapWidth * self.myOccupancyMapHeight
 
         if occupancy_map_size == 0:
@@ -72,7 +88,7 @@ class StateTrackerFollow(threading.Thread):
         follower_local_map.shape = (1, 1, self.myOccupancyMapHeight, self.myOccupancyMapWidth)
         follower_local_map_input = torch.from_numpy(follower_local_map).float().to(self.device)
         leader_trjectory_list = []
-        for item in self.leader_trajectoy:
+        for index, item in enumerate(self.leader_trajectoy):
             X = int((item.x - self.myOccupancyMapOriginX) / 0.1)
             Y = int((item.y - self.myOccupancyMapOriginY) / 0.1)
             leader_trjectory_list.append([X, Y])
@@ -114,6 +130,9 @@ class StateTrackerFollow(threading.Thread):
                     occupancy_map[row][col] = 0
         
         return occupancy_map
+
+    def get_real_leader_position(self):
+        pass
 
             
 
