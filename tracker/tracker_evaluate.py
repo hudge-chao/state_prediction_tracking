@@ -158,13 +158,13 @@ class TrackerEvaluate(threading.Thread):
         return self.map_origin_array[-1]
 
     def inference_navigation_goal(self):
-        follower_local_map = self.get_follower_occupancy_map()
+        follower_local_map = self.follower_occupancy_map[0]
         follower_local_map.shape = (1, 1, self.myOccupancyMapHeight, self.myOccupancyMapWidth)
         follower_local_map_input = torch.from_numpy(follower_local_map).float().to(self.device)
         leader_trjectory_list = []
+        mapOriginAlign = self.map_origin_array[index]
         for index, item in enumerate(self.leader_trajectoy):
             if index < 30:
-                mapOriginAlign = self.map_origin_array[index]
                 X = int((item.x - mapOriginAlign[0]) / 0.1)
                 Y = int((item.y - mapOriginAlign[1]) / 0.1)
                 leader_trjectory_list.append([X, Y])
