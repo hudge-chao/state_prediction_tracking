@@ -23,7 +23,7 @@ class TrackerEvaluate(threading.Thread):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         if tracker_type == 'union':
-            self.tracker_net = state_predictor()
+            self.tracker_net = state_predictor(model='deploy')
 
             self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_union/50_predictor.pth'), strict=True)
         

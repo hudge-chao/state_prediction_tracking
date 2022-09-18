@@ -56,7 +56,7 @@ print("===== total trainset size: {} =====".format(len(train_dataset)))
 
 print("===== total testset size: {} =====".format(len(test_dataset)))
 
-tracker = state_predictor()
+tracker = state_predictor(model='train')
 
 train_epoches = 1000
 lr = 0.001

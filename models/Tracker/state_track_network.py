@@ -4,16 +4,17 @@ import torch.nn as nn
 from models.AE.ConvAE import Encoder
 
 class state_predictor(nn.Module):
-    def __init__(self, input_dims=124, hidden_dims=32, output_dims=2) -> None:
+    def __init__(self, input_dims=124, hidden_dims=32, output_dims=2, model : str = 'train') -> None:
         super(state_predictor, self).__init__()
 
         self.encoder = Encoder()
 
-        self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/300_encoder.pth'), strict=True)
+        if model == 'train':
+            self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/300_encoder.pth'), strict=True)
 
-        for name, param in self.encoder.named_parameters():
-            if "encoder" in name:
-                param.requires_grad = False
+            for name, param in self.encoder.named_parameters():
+                if "encoder" in name:
+                    param.requires_grad = False
 
         self.map_conv_net = nn.Sequential(OrderedDict([
             ('map_conv_net-conv0', nn.Conv2d(64, 32, 1, 1, 0)),
