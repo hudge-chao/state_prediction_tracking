@@ -1,3 +1,4 @@
+from cmath import sqrt
 import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import PointStamped, Pose
@@ -5,6 +6,8 @@ from nav_msgs.msg import OccupancyGrid
 from models.Tracker.state_track_network import state_predictor
 from models.Tracker.state_track_trajectory_only import state_track_trajectory
 from visualization_msgs.msg import Marker
+from tf.broadcaster import TransformBroadcaster
+from tf.transformations import *
 import sys
 if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
@@ -32,6 +35,10 @@ class TrackerEvaluate(threading.Thread):
         
         self.leader_trajectoy = []
 
+        self.leader_trajectory_dist = []
+
+        self.follower_poistion = None
+
         self.follower_occupancy_map = []
 
         self.mapOriginArray = []
@@ -39,6 +46,8 @@ class TrackerEvaluate(threading.Thread):
         self.local_map_resolution = local_map_resolution
 
         self.trajectory_waypoints_nums = 35
+
+        self.tf_boardcaster = TransformBroadcaster()
 
         # self.leader_position_marker = Marker()
 
@@ -74,7 +83,30 @@ class TrackerEvaluate(threading.Thread):
     def leader_position_callback(self, msg:ModelStates):
         leader_pose_index = msg.name.index('robot')
         leader_position = msg.pose[leader_pose_index].position
+
         self.leader_trajectoy.append(leader_position)
+
+        if len(self.leader_trajectory_dist) == 0:
+            self.leader_trajectory_dist.append(leader_position)
+            self.follower_poistion = leader_position    
+        else:
+            last_leader_position = self.leader_trajectory_dist[-1]
+
+            dist = sqrt(pow(leader_position.x - last_leader_position.x, 2) + pow(leader_position.y - last_leader_position.y, 2))
+
+            if dist >= 0.1:
+                self.leader_trajectory_dist.append(leader_position)
+
+        if len(self.leader_trajectory_dist) > 30:
+            self.leader_trajectory_dist.pop(0)
+
+        # 解决跟随者位置问题
+        dist_follower_leader = sqrt(pow(self.follower_poistion.x - leader_position.x, 2) + pow(self.follower_poistion.y - leader_position.y, 2))
+
+        if dist_follower_leader >= 3.0:
+            self.follower_poistion = self.leader_trajectory_dist[0]
+        
+        self.boardcast_follower_transform()
 
         if len(self.leader_trajectoy) > self.trajectory_waypoints_nums:
             self.leader_trajectoy.pop(0)
@@ -90,6 +122,8 @@ class TrackerEvaluate(threading.Thread):
         if occupancy_map_size == 0:
             print('get error msg')
             return
+            
+        assert(occupancy_map_size > 0)
 
         self.follower_occupancy_map = [map.data[index] for index in range(occupancy_map_size)]
         occupancy_map = self.get_follower_occupancy_map()
@@ -98,6 +132,14 @@ class TrackerEvaluate(threading.Thread):
         if len(self.mapOriginArray) > 30:
             self.follower_occupancy_map.pop(0)
             self.mapOriginArray.pop(0)
+
+    def boardcast_follower_transform(self):
+        translation = (self.follower_poistion.x, self.follower_poistion.y, 0.75)
+        rotation = (0.0, 0.0, 0.0, 1.0)
+        self.tf_boardcaster.sendTransform(translation, rotation, 
+                                        rospy.Time.now(),
+                                        'sim_vehicle',
+                                        'map')
 
     def get_follower_occupancy_map(self):
     
