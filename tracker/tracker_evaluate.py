@@ -41,17 +41,13 @@ class TrackerEvaluate(threading.Thread):
 
         self.follower_occupancy_map = []
 
-        self.mapOriginArray = []
+        self.map_origin_array = []
 
         self.local_map_resolution = local_map_resolution
 
         self.trajectory_waypoints_nums = 35
 
         self.tf_boardcaster = TransformBroadcaster()
-
-        # self.leader_position_marker = Marker()
-
-        # self.tracked_position_marker = Marker()
 
 
     def run(self):
@@ -122,16 +118,16 @@ class TrackerEvaluate(threading.Thread):
         if occupancy_map_size == 0:
             print('get error msg')
             return
-            
+
         assert(occupancy_map_size > 0)
 
         self.follower_occupancy_map = [map.data[index] for index in range(occupancy_map_size)]
         occupancy_map = self.get_follower_occupancy_map()
         self.follower_occupancy_map.append(occupancy_map)
-        self.mapOriginArray.append((self.myOccupancyMapOriginX, self.myOccupancyMapOriginY))
-        if len(self.mapOriginArray) > 30:
+        self.map_origin_array.append((self.myOccupancyMapOriginX, self.myOccupancyMapOriginY))
+        if len(self.map_origin_array) > 30:
             self.follower_occupancy_map.pop(0)
-            self.mapOriginArray.pop(0)
+            self.map_origin_array.pop(0)
 
     def boardcast_follower_transform(self):
         translation = (self.follower_poistion.x, self.follower_poistion.y, 0.75)
@@ -159,7 +155,7 @@ class TrackerEvaluate(threading.Thread):
         return occupancy_map
 
     def get_current_leader_position(self):
-        return self.mapOriginArray[-1]
+        return self.map_origin_array[-1]
 
     def inference_navigation_goal(self):
         follower_local_map = self.get_follower_occupancy_map()
@@ -168,7 +164,7 @@ class TrackerEvaluate(threading.Thread):
         leader_trjectory_list = []
         for index, item in enumerate(self.leader_trajectoy):
             if index < 30:
-                mapOriginAlign = self.mapOriginArray[index]
+                mapOriginAlign = self.map_origin_array[index]
                 X = int((item.x - mapOriginAlign[0]) / 0.1)
                 Y = int((item.y - mapOriginAlign[1]) / 0.1)
                 leader_trjectory_list.append([X, Y])
