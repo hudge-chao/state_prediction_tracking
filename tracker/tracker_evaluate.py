@@ -1,9 +1,13 @@
 import rospy
 from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Pose
 from nav_msgs.msg import OccupancyGrid
 from models.Tracker.state_track_network import state_predictor
 from models.Tracker.state_track_trajectory_only import state_track_trajectory
+from visualization_msgs.msg import Marker
+import sys
+if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
+    sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import torch 
 import threading
 import cv2
@@ -18,8 +22,9 @@ class TrackerEvaluate(threading.Thread):
         if tracker_type == 'union':
             self.tracker_net = state_predictor()
 
-            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_union/300_predictor.pth'), strict=True).to(self.device)
+            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_union/50_predictor.pth'), strict=True)
         
+            self.tracker_net.to(self.device)
         else:
             self.tracker_net = state_track_trajectory()
 
@@ -35,6 +40,10 @@ class TrackerEvaluate(threading.Thread):
 
         self.trajectory_waypoints_nums = 35
 
+        # self.leader_position_marker = Marker()
+
+        # self.tracked_position_marker = Marker()
+
 
     def run(self):
         rospy.init_node('~', anonymous=True)
@@ -45,6 +54,8 @@ class TrackerEvaluate(threading.Thread):
 
         self.follower_navigation_pub = rospy.Publisher('/waypoint', PointStamped, queue_size=1)
 
+        self.visulization_marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
+
         self.goal_msg_publish_seq = 0
 
         rate = rospy.Rate(5)
@@ -54,6 +65,7 @@ class TrackerEvaluate(threading.Thread):
                 # state tracker inference the leader state and publish the navigation goal waypoint
                 tracked_state = self.inference_navigation_goal()
                 state_real = self.get_current_leader_position()
+                self.rviz_visulization_tools(state_real, tracked_state)
                 file_output = open('record.csv', 'a')
                 file_output.write('{},{},{},{}'.format(tracked_state[0], tracked_state[1], state_real[0], state_real[1]))
                 file_output.close()
@@ -125,6 +137,40 @@ class TrackerEvaluate(threading.Thread):
         tracker_output = self.tracker_net(follower_local_map_input, leader_trjectory_input)
         track_position = tracker_output.detach().cpu().numpy()[0]
         return track_position
+
+    def rviz_visulization_tools(self, leader_pos, traked_pos):
+        msgs = []
+        msgs.append(leader_pos)
+        msgs.append(traked_pos)
+        markers = [Marker() * 2]
+        for i, m in markers:
+            m.header.frame_id = '/markers'
+            m.header.stamp = rospy.Time.now()
+            m.ns = 'state_tracking'
+            m.id = i
+            m.type = Marker.CUBE
+            m.action = Marker.MODIFY
+            pose = Pose()
+            pose.position.x = msgs[i][0]
+            pose.position.y = msgs[i][1]
+            pose.position.z = 0.75
+            pose.orientation.w = 1.0
+            m.pose = pose
+            m.scale.x = 0.5
+            m.scale.y = 0.5
+            m.scale.z = 1.5
+            if i == 0:
+                m.color.r = 1.0
+                m.color.g = 0.0
+                m.color.b = 0.0
+            else:
+                m.color.r = 0.0
+                m.color.g = 1.0
+                m.color.b = 0.0
+            m.color.a = 1.0
+            m.lifetime = rospy.Duration()
+            self.visulization_marker_pub.publish(m)
+
 
             
 

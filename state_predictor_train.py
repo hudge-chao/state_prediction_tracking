@@ -65,7 +65,7 @@ loss_fn = nn.MSELoss()
 
 test_visualizatin_frequency = 3
 test_frequency = 5
-save_param_frequency = 50
+save_param_frequency = 20
 
 
 if __name__ == '__main__':

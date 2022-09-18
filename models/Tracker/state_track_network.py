@@ -9,7 +9,7 @@ class state_predictor(nn.Module):
 
         self.encoder = Encoder()
 
-        self.encoder.load_state_dict(torch.load('./weights/200_encoder.pth'), strict=True)
+        self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/300_encoder.pth'), strict=True)
 
         for name, param in self.encoder.named_parameters():
             if "encoder" in name:
