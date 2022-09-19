@@ -15,21 +15,26 @@ import cv2
 import numpy as np
 
 class TrackerEvaluate(threading.Thread):
-    def __init__(self, local_map_resolution : float = 0.1, tracker_type : str = 'union') -> None:
+    def __init__(self, local_map_resolution : float = 0.1, save_visulization_img : bool = False) -> None:
         super(TrackerEvaluate, self).__init__()
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        if tracker_type == 'union':
-            self.tracker_net = state_predictor(model='deploy')
+        # tracker one
+        self.tracker_union_net = state_predictor(model='deploy')
 
-            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_union/50_predictor.pth'), strict=True)
-        
-            self.tracker_net.to(self.device)
-        else:
-            self.tracker_net = state_track_trajectory(model='deploy')
+        self.tracker_union_net.load_state_dict(torch.load('./weights/state_tracker_union/tracker.pth'), strict=True)
+    
+        self.tracker_union_net.to(self.device)
 
-            self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_single/300_predictor.pth'), strict=True).to(self.device)
+        # tracker two
+        self.tracker_single_net = state_track_trajectory(model='deploy')
+
+        self.tracker_single_net.load_state_dict(torch.load('./weights/state_tracker_single/tracker.pth'), strict=True)
+
+        self.tracker_single_net.to(self.device)
+
+        # other variables
         
         self.leader_trajectoy = []
 
@@ -44,6 +49,8 @@ class TrackerEvaluate(threading.Thread):
         self.map_origin_array = []
 
         self.local_map_resolution = local_map_resolution
+
+        self.save_visulization_img = save_visulization_img
 
         self.trajectory_waypoints_nums = 35
 
@@ -68,12 +75,13 @@ class TrackerEvaluate(threading.Thread):
         while not rospy.is_shutdown():
             if len(self.leader_trajectoy) == self.trajectory_waypoints_nums and len(self.follower_local_map) == 30:
                 # state tracker inference the leader state and publish the navigation goal waypoint
-                tracked_state_real, tracked_state_img = self.inference_navigation_goal()
+                tracked_state_real_union, tracked_state_img, tracked_state_real_single = self.inference_navigation_goal()
                 state_real = self.get_current_leader_position()
-                print(tracked_state_real, "    ", state_real)
-                self.rviz_visulization_tools(state_real, tracked_state_real)
+                print(tracked_state_real_union, "    ", state_real, "    ", tracked_state_real_single)
+                state_msgs = [state_real, tracked_state_real_union, tracked_state_real_single]
+                self.rviz_visulization_tools(state_msgs)
                 file_output = open('record.csv', 'a')
-                file_output.write('{},{},{},{}\n'.format(tracked_state_real[0], tracked_state_real[1], state_real[0], state_real[1]))
+                file_output.write('{},{},{},{}\n'.format(tracked_state_real_union[0], tracked_state_real_union[1], state_real[0], state_real[1]))
                 file_output.close()
             rate.sleep()
 
@@ -159,31 +167,41 @@ class TrackerEvaluate(threading.Thread):
         return [self.leader_trajectoy[-1].x, self.leader_trajectoy[-1].y]
 
     def inference_navigation_goal(self):
+        # prepare input data for tracker network to inference
         follower_local_map = self.follower_local_map[0]
-        # print(follower_local_map.shape)
         follower_local_map.shape = (1, 1, self.myOccupancyMapHeight, self.myOccupancyMapWidth)
         follower_local_map_input = torch.from_numpy(follower_local_map).float().to(self.device)
-        leader_trjectory_list = []
+        leader_trajectory_img_list = []
+        leader_trajectory_real_list = []
         mapOriginAlign = self.map_origin_array[0]
         for index, item in enumerate(self.leader_trajectoy):
             if index < 30:    
                 X = int((item.x - mapOriginAlign[0]) / 0.1)
                 Y = int((item.y - mapOriginAlign[1]) / 0.1)
-                leader_trjectory_list.append([X, Y])
-        leader_trjectory = np.array(leader_trjectory_list, dtype=np.float)
-        leader_trjectory = leader_trjectory.reshape(-1)
-        leader_trjectory = np.expand_dims(leader_trjectory, 0)
-        leader_trjectory_input = torch.from_numpy(leader_trjectory).float().to(self.device)
-        tracker_output = self.tracker_net(follower_local_map_input, leader_trjectory_input)
-        track_position_img = tracker_output.detach().cpu().numpy()[0]
-        track_position_real = [track_position_img[0] * self.local_map_resolution + mapOriginAlign[0], track_position_img[1] * self.local_map_resolution + mapOriginAlign[1]]
-        return track_position_real, track_position_img
+                leader_trajectory_img_list.append([X, Y])
+                leader_trajectory_real_list.append([item.x, item.y])
+        # use union input tracker 
+        leader_trajectory_img = np.array(leader_trajectory_img_list, dtype=np.float)
+        leader_trajectory_img = leader_trajectory_img.reshape(-1)
+        leader_trajectory_img = np.expand_dims(leader_trajectory_img, 0)
+        leader_trajectory_input = torch.from_numpy(leader_trajectory_img).float().to(self.device)
+        tracker_union_output = self.tracker_union_net(follower_local_map_input, leader_trajectory_input)
+        # use single input tracker 
+        leader_trajectory_real = np.array(leader_trajectory_real_list, dtype=np.float)
+        leader_trajectory_real = leader_trajectory_real.reshape(-1)
+        leader_trajectory_real = np.expand_dims(leader_trajectory_real, 0)
+        leader_trajectory_input = torch.from_numpy(leader_trajectory_real).float().to(self.device)
+        tracker_single_output = self.tracker_single_net(leader_trajectory_input)
 
-    def rviz_visulization_tools(self, leader_pos, traked_pos):
-        msgs = []
-        msgs.append(leader_pos)
-        msgs.append(traked_pos)
-        markers = [Marker() for _ in range(2)]
+        track_position_img_union = tracker_union_output.detach().cpu().numpy()[0]
+        track_position_real_single = tracker_single_output.detach().cpu().numpy()[0]
+
+        track_position_real_union = [track_position_img_union[0] * self.local_map_resolution + mapOriginAlign[0], track_position_img_union[1] * self.local_map_resolution + mapOriginAlign[1]]
+        
+        return track_position_real_union, track_position_img_union, track_position_real_single
+
+    def rviz_visulization_tools(self, msgs):        
+        markers = [Marker() for _ in msgs]
         for i, m in enumerate(markers):
             m.header.frame_id = '/markers'
             m.header.stamp = rospy.Time.now()
@@ -204,10 +222,14 @@ class TrackerEvaluate(threading.Thread):
                 m.color.r = 1.0
                 m.color.g = 0.0
                 m.color.b = 0.0
-            else:
+            elif i == 1:
                 m.color.r = 0.0
                 m.color.g = 1.0
                 m.color.b = 0.0
+            else:
+                m.color.r = 0.0
+                m.color.g = 0.0
+                m.color.b = 1.0
             m.color.a = 1.0
             m.lifetime = rospy.Duration()
             self.visulization_marker_pub.publish(m)

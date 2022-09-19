@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from collections import OrderedDict
 
-class state_track_trajectory(nn.Module):
+class StateTrackerTrajectory(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -19,8 +19,7 @@ class state_track_trajectory(nn.Module):
             nn.ReLU(True),
             nn.Linear(50, 20),
             nn.ReLU(True),
-            nn.Linear(20, 2),
-            nn.ReLU(True)
+            nn.Linear(20, 2)
         )
     
     def forward(self, input):
