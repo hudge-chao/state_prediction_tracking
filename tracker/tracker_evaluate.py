@@ -1,4 +1,4 @@
-from cmath import sqrt
+import math
 import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import PointStamped, Pose
@@ -9,8 +9,6 @@ from visualization_msgs.msg import Marker
 from tf.broadcaster import TransformBroadcaster
 from tf.transformations import *
 import sys
-if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
-    sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import torch 
 import threading
 import cv2
@@ -29,7 +27,7 @@ class TrackerEvaluate(threading.Thread):
         
             self.tracker_net.to(self.device)
         else:
-            self.tracker_net = state_track_trajectory()
+            self.tracker_net = state_track_trajectory(model='deploy')
 
             self.tracker_net.load_state_dict(torch.load('./weights/state_tracker_single/300_predictor.pth'), strict=True).to(self.device)
         
@@ -41,6 +39,8 @@ class TrackerEvaluate(threading.Thread):
 
         self.follower_occupancy_map = []
 
+        self.follower_local_map = []
+
         self.map_origin_array = []
 
         self.local_map_resolution = local_map_resolution
@@ -49,10 +49,10 @@ class TrackerEvaluate(threading.Thread):
 
         self.tf_boardcaster = TransformBroadcaster()
 
+        rospy.init_node('state_track_node')
+
 
     def run(self):
-        rospy.init_node('~', anonymous=True)
-
         self.leader_postion_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.leader_position_callback, queue_size=5)
 
         self.leader_map_sub = rospy.Subscriber('/occupancy_map_local', OccupancyGrid, self.leader_map_callback, queue_size=1)
@@ -66,13 +66,14 @@ class TrackerEvaluate(threading.Thread):
         rate = rospy.Rate(5)
 
         while not rospy.is_shutdown():
-            if len(self.leader_trajectoy) == self.trajectory_waypoints_nums:
+            if len(self.leader_trajectoy) == self.trajectory_waypoints_nums and len(self.follower_local_map) == 30:
                 # state tracker inference the leader state and publish the navigation goal waypoint
-                tracked_state = self.inference_navigation_goal()
+                tracked_state_real, tracked_state_img = self.inference_navigation_goal()
                 state_real = self.get_current_leader_position()
-                self.rviz_visulization_tools(state_real, tracked_state)
+                print(tracked_state_real, "    ", state_real)
+                self.rviz_visulization_tools(state_real, tracked_state_real)
                 file_output = open('record.csv', 'a')
-                file_output.write('{},{},{},{}'.format(tracked_state[0], tracked_state[1], state_real[0], state_real[1]))
+                file_output.write('{},{},{},{}\n'.format(tracked_state_real[0], tracked_state_real[1], state_real[0], state_real[1]))
                 file_output.close()
             rate.sleep()
 
@@ -88,7 +89,7 @@ class TrackerEvaluate(threading.Thread):
         else:
             last_leader_position = self.leader_trajectory_dist[-1]
 
-            dist = sqrt(pow(leader_position.x - last_leader_position.x, 2) + pow(leader_position.y - last_leader_position.y, 2))
+            dist = math.sqrt(pow(leader_position.x - last_leader_position.x, 2) + pow(leader_position.y - last_leader_position.y, 2))
 
             if dist >= 0.1:
                 self.leader_trajectory_dist.append(leader_position)
@@ -97,7 +98,7 @@ class TrackerEvaluate(threading.Thread):
             self.leader_trajectory_dist.pop(0)
 
         # 解决跟随者位置问题
-        dist_follower_leader = sqrt(pow(self.follower_poistion.x - leader_position.x, 2) + pow(self.follower_poistion.y - leader_position.y, 2))
+        dist_follower_leader = math.sqrt(pow(self.follower_poistion.x - leader_position.x, 2) + pow(self.follower_poistion.y - leader_position.y, 2))
 
         if dist_follower_leader >= 3.0:
             self.follower_poistion = self.leader_trajectory_dist[0]
@@ -123,10 +124,10 @@ class TrackerEvaluate(threading.Thread):
 
         self.follower_occupancy_map = [map.data[index] for index in range(occupancy_map_size)]
         occupancy_map = self.get_follower_occupancy_map()
-        self.follower_occupancy_map.append(occupancy_map)
-        self.map_origin_array.append((self.myOccupancyMapOriginX, self.myOccupancyMapOriginY))
+        self.follower_local_map.append(occupancy_map)
+        self.map_origin_array.append([self.myOccupancyMapOriginX, self.myOccupancyMapOriginY])
         if len(self.map_origin_array) > 30:
-            self.follower_occupancy_map.pop(0)
+            self.follower_local_map.pop(0)
             self.map_origin_array.pop(0)
 
     def boardcast_follower_transform(self):
@@ -155,17 +156,17 @@ class TrackerEvaluate(threading.Thread):
         return occupancy_map
 
     def get_current_leader_position(self):
-        return self.map_origin_array[-1]
+        return [self.leader_trajectoy[-1].x, self.leader_trajectoy[-1].y]
 
     def inference_navigation_goal(self):
-        follower_local_map = self.follower_occupancy_map[0]
+        follower_local_map = self.follower_local_map[0]
         # print(follower_local_map.shape)
         follower_local_map.shape = (1, 1, self.myOccupancyMapHeight, self.myOccupancyMapWidth)
         follower_local_map_input = torch.from_numpy(follower_local_map).float().to(self.device)
         leader_trjectory_list = []
-        mapOriginAlign = self.map_origin_array[index]
+        mapOriginAlign = self.map_origin_array[0]
         for index, item in enumerate(self.leader_trajectoy):
-            if index < 30:
+            if index < 30:    
                 X = int((item.x - mapOriginAlign[0]) / 0.1)
                 Y = int((item.y - mapOriginAlign[1]) / 0.1)
                 leader_trjectory_list.append([X, Y])
@@ -174,15 +175,16 @@ class TrackerEvaluate(threading.Thread):
         leader_trjectory = np.expand_dims(leader_trjectory, 0)
         leader_trjectory_input = torch.from_numpy(leader_trjectory).float().to(self.device)
         tracker_output = self.tracker_net(follower_local_map_input, leader_trjectory_input)
-        track_position = tracker_output.detach().cpu().numpy()[0]
-        return track_position
+        track_position_img = tracker_output.detach().cpu().numpy()[0]
+        track_position_real = [track_position_img[0] * self.local_map_resolution + mapOriginAlign[0], track_position_img[1] * self.local_map_resolution + mapOriginAlign[1]]
+        return track_position_real, track_position_img
 
     def rviz_visulization_tools(self, leader_pos, traked_pos):
         msgs = []
         msgs.append(leader_pos)
         msgs.append(traked_pos)
-        markers = [Marker() * 2]
-        for i, m in markers:
+        markers = [Marker() for _ in range(2)]
+        for i, m in enumerate(markers):
             m.header.frame_id = '/markers'
             m.header.stamp = rospy.Time.now()
             m.ns = 'state_tracking'
