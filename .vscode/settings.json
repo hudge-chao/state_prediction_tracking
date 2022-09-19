@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "/home/ralab/anaconda3/envs/autoFollow/bin/python",
+    "python.analysis.extraPaths": [
+        "/opt/ros/noetic/lib/python3/dist-packages"
+    ]
+}
