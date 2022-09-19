@@ -159,6 +159,7 @@ class TrackerEvaluate(threading.Thread):
 
     def inference_navigation_goal(self):
         follower_local_map = self.follower_occupancy_map[0]
+        # print(follower_local_map.shape)
         follower_local_map.shape = (1, 1, self.myOccupancyMapHeight, self.myOccupancyMapWidth)
         follower_local_map_input = torch.from_numpy(follower_local_map).float().to(self.device)
         leader_trjectory_list = []
