@@ -13,7 +13,7 @@ from visualization import visualization_tools
 from tensorboardX import SummaryWriter
 import torch.nn as nn
 
-writer = SummaryWriter('./predictor_summary_log', flush_secs=1)
+writer = SummaryWriter('log/Tracker/Regression', flush_secs=1)
 
 class predictor_Dataset(Dataset):
     def __init__(self, dataset_dir:str = 'data') -> None:

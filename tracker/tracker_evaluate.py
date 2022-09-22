@@ -70,7 +70,7 @@ class TrackerEvaluate(threading.Thread):
 
         self.goal_msg_publish_seq = 0
 
-        rate = rospy.Rate(5)
+        rate = rospy.Rate(1)
 
         while not rospy.is_shutdown():
             if len(self.leader_trajectoy) == self.trajectory_waypoints_nums and len(self.follower_local_map) == 30:
@@ -81,13 +81,20 @@ class TrackerEvaluate(threading.Thread):
                 state_msgs = [state_real, tracked_state_real_union, tracked_state_real_single]
                 self.rviz_visulization_tools(state_msgs)
                 file_output = open('record.csv', 'a')
-                file_output.write('{},{},{},{}\n'.format(tracked_state_real_union[0], tracked_state_real_union[1], state_real[0], state_real[1]))
+                file_output.write('{},{},{},{},{},{}\n'.format(state_real[0], state_real[1], tracked_state_real_union[0], tracked_state_real_union[1], tracked_state_real_single[0], tracked_state_real_single[1]))
                 file_output.close()
             rate.sleep()
 
     def leader_position_callback(self, msg:ModelStates):
         leader_pose_index = msg.name.index('robot')
         leader_position = msg.pose[leader_pose_index].position
+
+        if len(self.follower_local_map) > 0:
+            is_visiable = self.is_leader_in_follower_fov()
+
+        # 跟随者丢失引领者位置
+        if not is_visiable:
+            return
 
         self.leader_trajectoy.append(leader_position)
 
@@ -233,6 +240,28 @@ class TrackerEvaluate(threading.Thread):
             m.color.a = 1.0
             m.lifetime = rospy.Duration()
             self.visulization_marker_pub.publish(m)
+
+    def is_leader_in_follower_fov(self) -> bool:
+        leader_current_loc = self.get_current_leader_position()
+        follower_map_origin = self.map_origin_array[0]
+        leader_current_loc = [(leader_current_loc[0] - follower_map_origin[0])/0.1, (leader_current_loc[1] - follower_map_origin[1])/0.1]
+        follower_current_map = self.follower_local_map[0]
+        follower_fixed_loc = [150, 150]
+        # if follower_fixed_loc[0] != leader_current_loc[0]:
+        #     leader_to_follower_slope = (leader_current_loc[1] - follower_fixed_loc[1]) / (leader_current_loc[0] - follower_fixed_loc[0])
+        dist = math.sqrt(pow(leader_current_loc[0] - follower_fixed_loc[0], 2) + pow(leader_current_loc[1] - follower_fixed_loc[1], 2))
+        vector_x_cos = (leader_current_loc[0] - follower_fixed_loc[0]) / dist
+        vector_x_sin = (leader_current_loc[1] - follower_fixed_loc[1]) / dist
+        obstacle_nums = 0
+        for x in range(0, dist, 1):
+            local_map_pixel_col = x * vector_x_cos + follower_fixed_loc[0]
+            local_map_pixel_row = x * vector_x_sin + follower_fixed_loc[1]
+            local_map_pixel_data = follower_current_map[local_map_pixel_row][local_map_pixel_col]
+            if local_map_pixel_data == 0:
+                obstacle_nums += 1
+                if obstacle_nums == 2:
+                    return False
+        return True
 
 
             

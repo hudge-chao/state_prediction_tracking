@@ -40,7 +40,7 @@ print('数据集样本数量: ', len(myDataset))
 
 print('图片尺寸: ', myDataset[0][0].shape)
 
-writer = tensorboardX.SummaryWriter('./log', flush_secs=2)
+writer = tensorboardX.SummaryWriter('log/AE', flush_secs=2)
 
 train_epoches = 100
 
