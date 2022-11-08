@@ -9,12 +9,14 @@ class state_predictor(nn.Module):
 
         self.encoder = Encoder()
 
-        if model == 'train':
-            self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/encoder.pth'), strict=True)
+        self.model = model
 
-            for name, param in self.encoder.named_parameters():
-                if "encoder" in name:
-                    param.requires_grad = False
+        # if model == 'train':
+        self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/encoder.pth'), strict=True)
+
+        for name, param in self.encoder.named_parameters():
+            if "encoder" in name:
+                param.requires_grad = False
 
         self.map_conv_net = nn.Sequential(OrderedDict([
             ('map_conv_net-conv0', nn.Conv2d(64, 32, 1, 1, 0)),
@@ -40,7 +42,6 @@ class state_predictor(nn.Module):
             ('map_conv_net-relu4', nn.ReLU(True)), # (4, 4, 4)
         ]))
         
-
         # 4*4*4 + 60 = 64 + 60 = 124
         self.predictor_net = nn.Sequential(OrderedDict([
             ('predictor-line0', nn.Linear(input_dims, hidden_dims*8)),

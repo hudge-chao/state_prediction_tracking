@@ -2,7 +2,6 @@ import os
 import sys
 current_dir = os.getcwd()
 sys.path.append(current_dir)
-print(current_dir)
 if '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path: 
     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import numpy as np
@@ -12,7 +11,7 @@ from models.Tracker.state_track_trajectory_only import StateTrackerTrajectory
 from tensorboardX import SummaryWriter
 import torch.nn as nn
 
-writer = SummaryWriter('./predictor_summary_log', flush_secs=1)
+writer = SummaryWriter('log/Tracker/trajectory_only', flush_secs=1)
 
 class TrackerDataset(Dataset):
     def __init__(self, dataset_dir:str = 'data') -> None:
