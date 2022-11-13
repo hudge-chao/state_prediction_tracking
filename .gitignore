@@ -12,6 +12,12 @@ predictor_summary_log
 
 weights
 
+!weights/state_tracker/800_predictor.pth
+
+!weights/state_tracker_single/tracker.pth
+
+!weights/state_tracker_union/tracker.pth
+
 samples
 
 samples-backup
