@@ -11,12 +11,11 @@ class state_predictor(nn.Module):
 
         self.model = model
 
-        # if model == 'train':
-        self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/encoder.pth'), strict=True)
-
-        for name, param in self.encoder.named_parameters():
-            if "encoder" in name:
-                param.requires_grad = False
+        if model == 'train':
+            self.encoder.load_state_dict(torch.load('./weights/ConvAE_weights/encoder.pth'), strict=True)
+            for name, param in self.encoder.named_parameters():
+                if "encoder" in name:
+                    param.requires_grad = True
 
         self.map_conv_net = nn.Sequential(OrderedDict([
             ('map_conv_net-conv0', nn.Conv2d(64, 32, 1, 1, 0)),
