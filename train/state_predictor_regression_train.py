@@ -76,7 +76,6 @@ if __name__ == '__main__':
         print('======== training ========')
         train_loss_epoch = []
         for image_batch, trajectory_batch, prediction_batch in train_dataloader:
-            print(image_batch.shape)
             image_batch_tensor = image_batch.clone().detach().float().to(device)
             trajectory_batch_tensor = trajectory_batch.detach().clone().float().to(device)
             prediction_batch_tensor = prediction_batch.detach().clone().float().to(device)
@@ -120,7 +119,7 @@ if __name__ == '__main__':
             selected_image_show = selected_image_show * 255.0
             visualization_image = visualization_tools(selected_image_show, selected_trajectory_show, selected_tracked, prediction)
             cv2.imwrite("predictor_visual_test.png", visualization_image)
-
+ 
         if (i % save_param_frequency == 0 and i != 0):
             print('========save model========')
             torch.save(tracker.state_dict(), "./weights/state_tracker/{}_predictor.pth".format(i))

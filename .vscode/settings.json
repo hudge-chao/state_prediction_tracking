@@ -2,5 +2,6 @@
     "python.defaultInterpreterPath": "/home/ralab/anaconda3/envs/person-following-drl/bin/python",
     "python.analysis.extraPaths": [
         "/opt/ros/kinetic/lib/python2.7/dist-packages"
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "off"
 }

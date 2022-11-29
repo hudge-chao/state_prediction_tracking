@@ -89,5 +89,5 @@ if __name__ == '__main__':
 
         if (i % save_param_frequency == 0 and i != 0):
             print('========save model========')
-            torch.save(tracker.state_dict(), "./weights/state_tracker_single/{}_tracker.pth".format(i))
+            torch.save(tracker.state_dict(), "./weights/state_tracker_single/{}_predictor.pth".format(i))
     print('======== learning end ========')
