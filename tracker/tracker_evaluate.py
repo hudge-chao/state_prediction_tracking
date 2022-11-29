@@ -3,7 +3,7 @@ import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import PointStamped, Pose
 from nav_msgs.msg import OccupancyGrid
-from models.Tracker.state_track_network import state_predictor
+from models.Tracker.state_tracker_network_v3 import state_predictor
 from models.Tracker.state_track_trajectory_only import state_track_trajectory
 from visualization_msgs.msg import Marker
 from tf.broadcaster import TransformBroadcaster
@@ -21,9 +21,16 @@ class TrackerEvaluate(threading.Thread):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # tracker one
-        self.tracker_union_net = state_predictor(model='deploy')
+        # # version 1:
+        # self.tracker_union_net = state_predictor(model='deploy')
 
-        self.tracker_union_net.load_state_dict(torch.load('./weights/state_tracker_union/tracker.pth'), strict=True)
+        # self.tracker_union_net.load_state_dict(torch.load('./weights/state_tracker_union/tracker.pth'), strict=True)
+    
+        # self.tracker_union_net.to(self.device)
+        # version 3:
+        self.tracker_union_net = state_predictor()
+
+        self.tracker_union_net.load_state_dict(torch.load('./weights/state_tracker_v3/tracker.pth'), strict=True)
     
         self.tracker_union_net.to(self.device)
 
@@ -200,7 +207,7 @@ class TrackerEvaluate(threading.Thread):
         leader_trajectory_input = torch.from_numpy(leader_trajectory_real).float().to(self.device)
         tracker_single_output = self.tracker_single_net(leader_trajectory_input)
 
-        track_position_img_union = tracker_union_output.detach().cpu().numpy()[0]
+        track_position_img_union = self.tracker_union_net.get_max_prob_position(tracker_union_output.detach().cpu().numpy()[0])
         track_position_real_single = tracker_single_output.detach().cpu().numpy()[0]
 
         track_position_real_union = [track_position_img_union[0] * self.local_map_resolution + mapOriginAlign[0], track_position_img_union[1] * self.local_map_resolution + mapOriginAlign[1]]

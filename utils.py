@@ -65,21 +65,21 @@ output_dst = os.path.join(os.getcwd(), 'samples/tracked_prob')
 # graph = tracked_to_prob(tracked_position, map)
 # cv2.imwrite('prob.png', graph * 255)
 
-dirs = os.listdir(tracked_dst)
+# dirs = os.listdir(tracked_dst)
 
-pbar = tqdm(total=len(dirs))
+# pbar = tqdm(total=len(dirs))
 
-for i, dir in enumerate(dirs):
-    tracked_file = os.path.join(tracked_path, dir)
-    map_file = os.path.join(map_dst, f'{i}.png')
-    map = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
-    tracked_position = np.loadtxt(tracked_file, delimiter=',', dtype=np.int)
-    tracked_prob = tracked_to_prob(tracked_position, map)
-    output_path = os.path.join(output_dst, f'{i}.png')
-    cv2.imwrite(output_path, tracked_prob)
-    pbar.update(1)
+# for i, dir in enumerate(dirs):
+#     tracked_file = os.path.join(tracked_path, dir)
+#     map_file = os.path.join(map_dst, f'{i}.png')
+#     map = cv2.imread(map_file, cv2.IMREAD_GRAYSCALE)
+#     tracked_position = np.loadtxt(tracked_file, delimiter=',', dtype=np.int)
+#     tracked_prob = tracked_to_prob(tracked_position, map)
+#     output_path = os.path.join(output_dst, f'{i}.png')
+#     cv2.imwrite(output_path, tracked_prob)
+#     pbar.update(1)
 
-    
+  
 
 # for dir in dirs:
 #     parent_path = os.path.join(dst, dir)

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torchvision.models import densenet121
 from models.AE.ConvAE import Encoder
+import numpy as np
 
 class state_predictor(nn.Module):
     def __init__(self, input_dims=124, hidden_dims=32, output_dims=2, load_mode : str = 'train') -> None:
@@ -147,45 +148,6 @@ class state_predictor(nn.Module):
 
         self.mode = load_mode
 
-        self.map_conv_net = nn.Sequential(OrderedDict([
-            ('map_conv_net-conv0', nn.Conv2d(64, 32, 1, 1, 0)),
-            ('map_conv_net-norm0', nn.BatchNorm2d(32)),
-            ('map_conv_net-relu0', nn.ReLU(True)), # (32, 10, 10)
-
-            ('map_conv_net-conv1', nn.Conv2d(32, 16, 2, 1, 0)),
-            ('map_conv_net-norm1', nn.BatchNorm2d(16)),
-            ('map_conv_net-relu1', nn.ReLU(True)), # (16, 9, 9)
-
-            ('map_conv_net-conv2', nn.Conv2d(16, 8, 2, 1, 0)),
-            ('map_conv_net-norm2', nn.BatchNorm2d(8)),
-            ('map_conv_net-relu2', nn.ReLU(True)), # (8, 8, 8)
-
-            ('map_conv_net-pool0', nn.MaxPool2d(2, 2, 0)), # (8, 4, 4)
-
-            ('map_conv_net-conv3', nn.Conv2d(8, 8, 1, 1, 0)),
-            ('map_conv_net-norm3', nn.BatchNorm2d(8)),
-            ('map_conv_net-relu3', nn.ReLU(True)), # (8, 4, 4)
-
-            ('map_conv_net-conv4', nn.Conv2d(8, 4, 1, 1, 0)),
-            ('map_conv_net-norm4', nn.BatchNorm2d(4)),
-            ('map_conv_net-relu4', nn.ReLU(True)), # (4, 4, 4)
-        ]))
-        
-        # 4*4*4 + 60 = 64 + 60 = 124
-        self.predictor_net = nn.Sequential(OrderedDict([
-            ('predictor-line0', nn.Linear(input_dims, hidden_dims*8)),
-            ('predictor-relu0', nn.ReLU(True)),
-            ('predictor-line1', nn.Linear(hidden_dims*8, hidden_dims*4)),
-            ('predictor-relu1', nn.ReLU(True)),
-            ('predictor-line2', nn.Linear(hidden_dims*4, hidden_dims*4)),
-            ('predictor-relu2', nn.ReLU(True)),
-            ('predictor-line3', nn.Linear(hidden_dims*4, hidden_dims*2)),
-            ('predictor-relu3', nn.ReLU(True)),
-            ('predictor-line4', nn.Linear(hidden_dims*2, hidden_dims)),
-            ('predictor-relu4', nn.ReLU(True)),
-            ('predictor-line5', nn.Linear(hidden_dims, output_dims))
-        ]))
-
     def forward(self, union_image):
         # map_encoded = self.encoder.forward(local_map)
         # map_feat = self.map_conv_net(map_encoded)
@@ -196,3 +158,11 @@ class state_predictor(nn.Module):
         encoder_outputs = self.encoder_cnn(union_image)
         outputs = self.decoder_conv(encoder_outputs)
         return outputs
+    
+    @staticmethod
+    def get_max_prob_position(prob_graph : np.ndarray) -> tuple:
+        prob_vector = prob_graph.reshape(1, -1)
+        max_prob_index = np.argmax(prob_vector)
+        row_index = max_prob_index // 300
+        col_index = max_prob_index % 300
+        return row_index, col_index
